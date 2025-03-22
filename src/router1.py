@@ -9,7 +9,7 @@ from pydantic_schemas import (
     ShortCodeStatsResponse
 )
 from db_models import URLAddresses
-from sqlalchemy import select, insert
+from sqlalchemy import select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_async_session
 from manager import current_user, current_active_user
@@ -101,6 +101,11 @@ async def redirect_to_initial_url(
 
     # Если url невалиден, может возникнуть ошибка
     try:
+        query = update(URLAddresses)\
+                .where(URLAddresses.shorten_url == short_code)\
+                .values({URLAddresses.open_url_count: URLAddresses.open_url_count + 1})
+        await session.execute(query)
+        await session.commit()
         return RedirectResponse(url=initial_url)
     except:
         raise HTTPException(
