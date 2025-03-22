@@ -2,7 +2,6 @@ import random
 import string
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from fastapi.requests import Request
 from shorturl import shorten_url_hash
 from pydantic_schemas import (
     ShortenURLModelRequest,
@@ -14,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_async_session
 from manager import current_user, current_active_user
 from database import User
+from typing import List
 
 router = APIRouter(prefix='/links')
 
@@ -42,9 +42,7 @@ async def shorten_url(
         url_hash = shorten_url_hash(url.url + additional_letters)
 
     # Проверяем, есть ли авторизованный пользователь
-    print(user)
     if user:
-        print('HELLOO')
         user_id = user.id
     else:
         user_id = None
@@ -66,22 +64,28 @@ async def shorten_url(
     return  ShortenURLModelResponse(shorten_url=url_hash, status='success')
 
 
+# Поиск ссылки по оригинальному URL:
+@router.get("/search")
+async def search_url_alias(
+        url: str,
+        session: AsyncSession = Depends(get_async_session)
+):
+    query = select(URLAddresses.shorten_url).where(URLAddresses.initial_url==url)
+    initial_url = await session.execute(query)
+    initial_url = initial_url.scalars().all()
+
+    return  initial_url
+
 @router.get("/{short_code}") # response_model=RedirectResponse
 async def redirect_to_initial_url(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
-    print(short_code)
+
     # Извлекаем известные Url из БД
     query = select(URLAddresses.shorten_url)
-    print(short_code)
     shorten_urls_db = await session.execute(query)
-    print(short_code)
     shorten_urls_db = shorten_urls_db.scalars().all()
-    print(short_code)
-    print(shorten_urls_db)
-    print(short_code)
-    print(short_code in shorten_urls_db)
 
     if short_code not in shorten_urls_db:
         raise HTTPException(status_code=404, detail="There's no url with such alias!")
@@ -104,11 +108,5 @@ async def redirect_to_initial_url(
         )
 
 
-# Поиск ссылки по оригинальному URL:
-# GET /links/search?original_url={url}
-@router.get("/search") # response_model=RedirectResponse
-async def redirect_to_initial_url(
-        original_url: str,
-        session: AsyncSession = Depends(get_async_session)
-):
-    pass
+
+
