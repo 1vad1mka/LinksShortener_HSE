@@ -5,7 +5,8 @@ from fastapi.responses import RedirectResponse
 from shorturl import shorten_url_hash
 from pydantic_schemas import (
     ShortenURLModelRequest,
-    ShortenURLModelResponse
+    ShortenURLModelResponse,
+    ShortCodeStatsResponse
 )
 from db_models import URLAddresses
 from sqlalchemy import select, insert
@@ -108,5 +109,37 @@ async def redirect_to_initial_url(
         )
 
 
+# Выводим статистику по alias'у
+# Отображает оригинальный URL, возвращает дату создания, количество переходов,
+# дату последнего использовани.
+@router.get("/links/{short_code}/stats", response_model=ShortCodeStatsResponse)
+async def short_code_stats(
+        short_code: str,
+        session: AsyncSession = Depends(get_async_session)
+):
+    query = select(
+        URLAddresses.id,
+        URLAddresses.initial_url,
+        URLAddresses.open_url_count,
+        URLAddresses.created_at,
+        URLAddresses.last_used_at
+    ).where(URLAddresses.shorten_url==short_code)
 
+    short_code_info = await session.execute(query)
 
+    for row in short_code_info:
+        result = {
+            'initial_url': row[1],
+            'redirect_count': row[2],
+            'created_at': row[3],
+            'last_used_at': row[4]
+        }
+
+    response = ShortCodeStatsResponse(
+        initial_url=result['initial_url'],
+        redirect_count=result['redirect_count'],
+        created_at=result['created_at'],
+        last_used_at=result['last_used_at']
+    )
+
+    return response

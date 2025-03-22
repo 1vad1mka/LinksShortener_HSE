@@ -28,8 +28,9 @@ class URLAddresses(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('user.id'), nullable=True)  # Задаем внешний ключ
     initial_url = Column(String, nullable=False)
-    shorten_url = Column(String, nullable=False)
+    shorten_url = Column(String, nullable=False, unique=True)
     open_url_count = Column(Integer, nullable=False)
-
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.now())
+    last_used_at = Column(DateTime, nullable=True, default=None)
     # Устанавливаем обратную связь с таблицей Users
     user = relationship("User", back_populates="url")
