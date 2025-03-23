@@ -8,12 +8,12 @@ from pydantic_schemas import (
     ShortenURLModelResponse,
     ShortCodeStatsResponse
 )
-from db_models import URLAddresses
+
 from sqlalchemy import select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_async_session
-from manager import current_user, current_active_user
-from database import User
+from db import get_async_session
+from users import current_user, current_active_user
+from db import User, URLAddresses
 from typing import List
 
 router = APIRouter(prefix='/links')

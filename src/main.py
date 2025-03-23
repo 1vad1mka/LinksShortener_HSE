@@ -1,29 +1,37 @@
-from fastapi_users import  FastAPIUsers
-from fastapi import HTTPException
-import uvicorn
-from router1 import router as router1
 from fastapi import Depends, FastAPI
-from database import User
-from schemas import UserCreate, UserRead
-from manager import get_user_manager
-from auth import auth_backend
-import  uuid
+from db import User
+from schemas import UserCreate, UserRead, UserUpdate
+from users import auth_backend, current_active_user, fastapi_users
+from router1 import router as router1
+import uvicorn
+
 
 app = FastAPI()
-
-fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
-current_active_user = fastapi_users.current_user(active=True)
 
 app.include_router(router1)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]
 )
-
 app.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",
     tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_reset_password_router(),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_verify_router(UserRead),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/users",
+    tags=["users"],
 )
 
 
