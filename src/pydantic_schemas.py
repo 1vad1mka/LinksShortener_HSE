@@ -19,6 +19,12 @@ class ShortCodeStatsResponse(BaseModel):
     created_at: Union[datetime, None]
     last_used_at: Union[datetime, None]
 
+
 class DeleteShortCodeResponse(BaseModel):
+    status: str
+    details: str
+
+
+class ChangeShortCodeResponse(BaseModel):
     status: str
     details: str

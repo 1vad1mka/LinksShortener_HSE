@@ -8,7 +8,8 @@ from pydantic_schemas import (
     ShortenURLModelRequest,
     ShortenURLModelResponse,
     ShortCodeStatsResponse,
-    DeleteShortCodeResponse
+    DeleteShortCodeResponse,
+    ChangeShortCodeResponse
 )
 from sqlalchemy import select, insert, update, and_, distinct, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -147,6 +148,19 @@ async def short_code_stats(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
+
+    # Проверяем, есть ли такой short_code
+    query = select(distinct(URLAddresses.shorten_url))
+    short_codes_db = await session.execute(query)
+    short_codes_db = short_codes_db.scalars().all()
+
+    if short_code not in short_codes_db:
+        raise HTTPException(
+            status_code=404,
+            detail=f"URL Alias '{short_code}' doesn't exist! Try another one."
+        )
+
+    # Работаем со статистикой
     try:
         query = select(
             URLAddresses.id,
@@ -222,4 +236,59 @@ async def delete_url_alias(
     return  response
 
 
+# PUT /links/{short_code} – обновляет URL (То есть, короткий адрес.
+# Будем засчитывать и другую реализацию - когда к короткой ссылке привязывается новая длинная).
+@router.put("/{short_code}")
+async def change_short_code(
+        initial_short_code: str,
+        new_short_code: str,
+        session: AsyncSession = Depends(get_async_session),
+        user: User = Depends(current_active_user)
+):
+    # Проверяем, создавал ли данный пользователь ссылки
+    query = select(distinct(URLAddresses.user_id))
+    unique_ids = await session.execute(query)
+    unique_ids = unique_ids.scalars().all()
 
+    if user.id not in unique_ids:
+        raise HTTPException(status_code=400, detail="You haven't created any url's aliases yet!")
+
+    # Проверяем, создал ли пользователь данный alias
+    query = select(distinct(URLAddresses.user_id))\
+            .where(URLAddresses.shorten_url == initial_short_code)
+    unique_ids = await session.execute(query)
+    unique_ids = unique_ids.scalars().all()
+
+    if user.id not in unique_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="You haven't created this url's aliases! Permission denied!"
+        )
+
+    # Проверяем, что нового short_code'а ещё нет в БД
+    query = select(distinct(URLAddresses.shorten_url))
+    unique_aliases = await session.execute(query)
+    unique_aliases  = unique_aliases.scalars().all()
+
+    if new_short_code in unique_aliases:
+        raise HTTPException(
+            status_code=400,
+            detail=f"URL Alias {initial_short_code} already exists! Try another one!"
+        )
+
+    # Изменяем url
+    query = update(URLAddresses) \
+        .where(
+        and_(URLAddresses.shorten_url == initial_short_code, URLAddresses.user_id == user.id)
+    )\
+        .values({URLAddresses.shorten_url: new_short_code})
+    await session.execute(query)
+    await session.commit()
+
+    # Формируем ответ
+    response = ChangeShortCodeResponse(
+        status="success",
+        details=f"URL's alias '{initial_short_code}' was changed to {new_short_code}!"
+    )
+
+    return  response
