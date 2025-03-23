@@ -37,6 +37,9 @@ app.include_router(
 
 @app.get("/authenticated-route")
 async def authenticated_route(users: User = Depends(current_active_user)):
+    print(users)
+    print(users.registered_at)
+    print(users.email)
     return {"message": f"Hello {users.email}!"}
 
 

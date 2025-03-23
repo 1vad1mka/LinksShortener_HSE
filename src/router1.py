@@ -1,3 +1,4 @@
+import datetime
 import random
 import string
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,8 +9,7 @@ from pydantic_schemas import (
     ShortenURLModelResponse,
     ShortCodeStatsResponse
 )
-
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_async_session
 from users import current_user, current_active_user
@@ -25,9 +25,12 @@ async def shorten_url(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Извлекаем из БД все shorten_url
-    query = select(URLAddresses.shorten_url)
-    shorten_urls_db = await session.execute(query)
-    shorten_urls_db = shorten_urls_db.scalars().all()
+    try:
+        query = select(URLAddresses.shorten_url)
+        shorten_urls_db = await session.execute(query)
+        shorten_urls_db = shorten_urls_db.scalars().all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Если пользователь передает кастомный alias
     if url.custom_alias:
@@ -57,9 +60,12 @@ async def shorten_url(
     }
 
     # Записываем данные в БД
-    query = insert(URLAddresses).values(**values_to_insert)
-    shorten_urls_db = await session.execute(query)
-    await session.commit()
+    try:
+        query = insert(URLAddresses).values(**values_to_insert)
+        shorten_urls_db = await session.execute(query)
+        await session.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Возвращаем данные
     return  ShortenURLModelResponse(shorten_url=url_hash, status='success')
@@ -71,9 +77,15 @@ async def search_url_alias(
         url: str,
         session: AsyncSession = Depends(get_async_session)
 ):
-    query = select(URLAddresses.shorten_url).where(URLAddresses.initial_url==url)
-    initial_url = await session.execute(query)
-    initial_url = initial_url.scalars().all()
+    try:
+        query = select(URLAddresses.shorten_url).where(URLAddresses.initial_url==url)
+        initial_url = await session.execute(query)
+        initial_url = initial_url.scalars().all()
+    except Exception as e:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Something went wrong. Perhaps url is not valid. Details: {e}"
+        )
 
     return  initial_url
 
@@ -83,10 +95,13 @@ async def redirect_to_initial_url(
         session: AsyncSession = Depends(get_async_session)
 ):
 
-    # Извлекаем известные Url из БД
-    query = select(URLAddresses.shorten_url)
-    shorten_urls_db = await session.execute(query)
-    shorten_urls_db = shorten_urls_db.scalars().all()
+    try:
+        # Извлекаем известные Url из БД
+        query = select(URLAddresses.shorten_url)
+        shorten_urls_db = await session.execute(query)
+        shorten_urls_db = shorten_urls_db.scalars().all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     if short_code not in shorten_urls_db:
         raise HTTPException(status_code=404, detail="There's no url with such alias!")
@@ -101,11 +116,20 @@ async def redirect_to_initial_url(
 
     # Если url невалиден, может возникнуть ошибка
     try:
+        # Увеличиваем счетчик использования ссылки
         query = update(URLAddresses)\
                 .where(URLAddresses.shorten_url == short_code)\
                 .values({URLAddresses.open_url_count: URLAddresses.open_url_count + 1})
         await session.execute(query)
         await session.commit()
+
+        # Обновляем дату последнего использования
+        query = update(URLAddresses)\
+                .where(URLAddresses.shorten_url == short_code)\
+                .values({URLAddresses.last_used_at: datetime.datetime.now()})
+        await session.execute(query)
+        await session.commit()
+
         return RedirectResponse(url=initial_url)
     except:
         raise HTTPException(
@@ -116,35 +140,54 @@ async def redirect_to_initial_url(
 
 # Выводим статистику по alias'у
 # Отображает оригинальный URL, возвращает дату создания, количество переходов,
-# дату последнего использовани.
-@router.get("/links/{short_code}/stats", response_model=ShortCodeStatsResponse)
+# дату последнего использования.
+@router.get("/{short_code}/stats", response_model=ShortCodeStatsResponse)
 async def short_code_stats(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
-    query = select(
-        URLAddresses.id,
-        URLAddresses.initial_url,
-        URLAddresses.open_url_count,
-        URLAddresses.created_at,
-        URLAddresses.last_used_at
-    ).where(URLAddresses.shorten_url==short_code)
+    try:
+        query = select(
+            URLAddresses.id,
+            URLAddresses.initial_url,
+            URLAddresses.open_url_count,
+            URLAddresses.created_at,
+            URLAddresses.last_used_at
+        ).where(URLAddresses.shorten_url==short_code)
 
-    short_code_info = await session.execute(query)
+        short_code_info = await session.execute(query)
 
-    for row in short_code_info:
-        result = {
-            'initial_url': row[1],
-            'redirect_count': row[2],
-            'created_at': row[3],
-            'last_used_at': row[4]
-        }
+        for row in short_code_info:
+            result = {
+                'initial_url': row[1],
+                'redirect_count': row[2],
+                'created_at': row[3],
+                'last_used_at': row[4]
+            }
 
-    response = ShortCodeStatsResponse(
-        initial_url=result['initial_url'],
-        redirect_count=result['redirect_count'],
-        created_at=result['created_at'],
-        last_used_at=result['last_used_at']
-    )
+        response = ShortCodeStatsResponse(
+            initial_url=result['initial_url'],
+            redirect_count=result['redirect_count'],
+            created_at=result['created_at'],
+            last_used_at=result['last_used_at']
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     return response
+
+
+# Endpoint, который удаляет связь
+@router.delete("/{short_code}")
+async def delete_url_alias(
+        short_code: str,
+        session: AsyncSession = Depends(get_async_session),
+        user: User = Depends(current_active_user)
+):
+    query = select(URLAddresses.shorten_url).where(
+        and_(URLAddresses.user_id == user.id, URLAddresses.shorten_url == short_code)
+    )
+    initial_url = await session.execute(query)
+    initial_url = initial_url.scalars().all()
+    return  initial_url
+
