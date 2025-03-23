@@ -7,9 +7,10 @@ from shorturl import shorten_url_hash
 from pydantic_schemas import (
     ShortenURLModelRequest,
     ShortenURLModelResponse,
-    ShortCodeStatsResponse
+    ShortCodeStatsResponse,
+    DeleteShortCodeResponse
 )
-from sqlalchemy import select, insert, update, and_
+from sqlalchemy import select, insert, update, and_, distinct, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_async_session
 from users import current_user, current_active_user
@@ -184,10 +185,41 @@ async def delete_url_alias(
         session: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user)
 ):
-    query = select(URLAddresses.shorten_url).where(
+
+    # Проверяем, создавал ли данный пользователь ссылки
+    query = select(distinct(URLAddresses.user_id))
+    unique_ids = await session.execute(query)
+    unique_ids = unique_ids.scalars().all()
+
+    if user.id not in unique_ids:
+        raise HTTPException(status_code=400, detail="You haven't created any url's aliases yet!")
+
+    # Проверяем, создал ли пользователь данный alias
+    query = select(distinct(URLAddresses.user_id))\
+            .where(URLAddresses.shorten_url == short_code)
+    unique_ids = await session.execute(query)
+    unique_ids = unique_ids.scalars().all()
+
+    if user.id not in unique_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="You haven't created this url's aliases! Permission denied!"
+        )
+
+    # Удаляем url
+    query = delete(URLAddresses).where(
         and_(URLAddresses.user_id == user.id, URLAddresses.shorten_url == short_code)
     )
     initial_url = await session.execute(query)
-    initial_url = initial_url.scalars().all()
-    return  initial_url
+    await session.commit()
+
+    # Формируем ответ
+    response = DeleteShortCodeResponse(
+        status="success",
+        details=f"URL's alias '{short_code}' was deleted!"
+    )
+
+    return  response
+
+
 

@@ -18,3 +18,7 @@ class ShortCodeStatsResponse(BaseModel):
     redirect_count: int
     created_at: Union[datetime, None]
     last_used_at: Union[datetime, None]
+
+class DeleteShortCodeResponse(BaseModel):
+    status: str
+    details: str
