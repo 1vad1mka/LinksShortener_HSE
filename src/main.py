@@ -1,10 +1,12 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from src.db import User
 from src.schemas import UserCreate, UserRead, UserUpdate
 from src.users import auth_backend, current_active_user, fastapi_users
 from src.router1 import router as router1
 from src.router2 import router as router2
 import uvicorn
+
+import logging
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -15,6 +17,10 @@ from fastapi_cache.decorator import cache
 
 from redis import asyncio as aioredis
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     redis = aioredis.from_url("redis://localhost")
@@ -22,6 +28,22 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+
+# Middleware для логирования
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Логируем информацию о запросе
+    logger.info(f"Request: {request.method} {request.url}")
+
+    # Обрабатываем запрос и получаем ответ
+    response = await call_next(request)
+
+    # Логируем информацию о ответе
+    logger.info(f"Response status: {response.status_code}")
+
+    return response
+
 
 app.include_router(router1)
 

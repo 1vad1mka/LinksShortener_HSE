@@ -87,10 +87,10 @@ async def shorten_url(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    #try:
-    _ = await delete_expired(session)
-    #except Exception as e:
-    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Извлекаем из БД все shorten_url
     try:
@@ -147,6 +147,12 @@ async def search_url_alias(
         url: str,
         session: AsyncSession = Depends(get_async_session)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
     try:
         query = select(URLAddresses.shorten_url).where(URLAddresses.initial_url==url)
         initial_url = await session.execute(query)
@@ -165,6 +171,13 @@ async def redirect_to_initial_url(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
+
     # Удаляем кэш, т.к. редирект инкрементирует counter перехода по ссылке
     await FastAPICache.clear()
 
@@ -221,10 +234,10 @@ async def short_code_stats(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    #try:
-    _ = await delete_expired(session)
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Проверяем, есть ли такой short_code
     query = select(distinct(URLAddresses.shorten_url))
@@ -276,6 +289,11 @@ async def delete_url_alias(
         session: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Очищаем кэш
     await FastAPICache.clear()
@@ -325,6 +343,12 @@ async def change_short_code(
         session: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
     # Очищаем кэш
     await FastAPICache.clear()
 
