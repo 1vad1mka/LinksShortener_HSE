@@ -5,7 +5,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from src.shorturl import shorten_url_hash
+from src.functions import shorten_url_hash
 from src.pydantic_schemas import (
     ShortenURLModelRequest,
     ShortenURLModelResponse,
@@ -17,12 +17,55 @@ from sqlalchemy import select, insert, update, and_, distinct, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.db import get_async_session
 from src.users import current_user, current_active_user
-from src.db import User, URLAddresses
+from src.db import User, URLAddresses, ExpiredURLHistory
 from typing import List
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
 
 router = APIRouter(prefix='/links')
+
+
+async def delete_expired(session, n_days_expired=30):
+    """
+    Функция для удаления истекших ссылок, а также для удаления неиспользуемых ссылок:
+        - session: сессия БД
+        - n_days_expired: число дней, после которых url удаляются из БД
+    """
+    # Добавляем все истекшие ссылки в таблицу с url
+    query = select(URLAddresses).where(URLAddresses.expires_at <= datetime.datetime.now())
+    records_to_insert = await session.execute(query)
+    records_to_insert = records_to_insert.scalars().all()
+
+    if records_to_insert:
+        for record in records_to_insert:
+            values_to_insert = {
+                 'user_id': record.user_id,
+                 'initial_url': record.initial_url,
+                 'shorten_url': record.shorten_url,
+                 'open_url_count': record.open_url_count,
+                 'created_at': record.created_at,
+                 'last_used_at': record.last_used_at,
+                 'expired_at': record.expires_at
+            }
+
+            # Записываем данные в БД
+            try:
+                query = insert(ExpiredURLHistory).values(**values_to_insert)
+                await session.execute(query)
+                await session.commit()
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
+        # Удаляем все ссылки, срок действия которых истек
+        try:
+            query = delete(URLAddresses).where(URLAddresses.expires_at <= datetime.datetime.now())
+            await session.execute(query)
+            await session.commit()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
+        return None
+
 
 @router.post("/shorten") #response_model=ShortenURLModelResponse
 async def shorten_url(
@@ -30,6 +73,12 @@ async def shorten_url(
         user: User = Depends(current_user),
         session: AsyncSession = Depends(get_async_session)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
     # Извлекаем из БД все shorten_url
     try:
         query = select(URLAddresses.shorten_url)
@@ -63,6 +112,7 @@ async def shorten_url(
          'initial_url': url.url,
          'shorten_url': url_hash,
          'open_url_count': 0,
+         'expires_at': url.expires_at.replace(tzinfo=None)
     }
 
     # Записываем данные в БД
@@ -71,7 +121,7 @@ async def shorten_url(
         shorten_urls_db = await session.execute(query)
         await session.commit()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Возвращаем данные
     return  ShortenURLModelResponse(shorten_url=url_hash, status='success')
@@ -157,6 +207,11 @@ async def short_code_stats(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
+    # Предварительно удаляем истекшие ссылки
+    try:
+        _ = await delete_expired(session)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Проверяем, есть ли такой short_code
     query = select(distinct(URLAddresses.shorten_url))

@@ -3,6 +3,7 @@ from src.db import User
 from src.schemas import UserCreate, UserRead, UserUpdate
 from src.users import auth_backend, current_active_user, fastapi_users
 from src.router1 import router as router1
+from src.router2 import router as router2
 import uvicorn
 
 from collections.abc import AsyncIterator
@@ -19,7 +20,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     redis = aioredis.from_url("redis://localhost")
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
     yield
-
 
 app = FastAPI(lifespan=lifespan)
 

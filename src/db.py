@@ -28,6 +28,20 @@ class URLAddresses(Base):
     open_url_count = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.datetime.now())
     last_used_at = Column(DateTime, nullable=True, default=None)
+    expires_at = Column(DateTime, nullable=True, default=None)
+
+
+class ExpiredURLHistory(Base):
+    __tablename__ = 'history'
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(UUID,  nullable=True)  # Задаем внешний ключ
+    initial_url = Column(String, nullable=False)
+    shorten_url = Column(String, nullable=False, unique=True)
+    open_url_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.datetime.now())
+    last_used_at = Column(DateTime, nullable=True, default=None)
+    expired_at = Column(DateTime, nullable=True, default=None)
 
 
 engine = create_async_engine(DATABASE_URL)

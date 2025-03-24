@@ -10,4 +10,3 @@ def shorten_url_hash(url: str):
     hash_creator.update(url.encode())
     url_hash = hash_creator.hexdigest()[:6]
     return url_hash
-
