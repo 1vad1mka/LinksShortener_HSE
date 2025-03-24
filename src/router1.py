@@ -1,10 +1,12 @@
 import datetime
 import random
 import string
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from shorturl import shorten_url_hash
-from pydantic_schemas import (
+from src.shorturl import shorten_url_hash
+from src.pydantic_schemas import (
     ShortenURLModelRequest,
     ShortenURLModelResponse,
     ShortCodeStatsResponse,
@@ -13,10 +15,11 @@ from pydantic_schemas import (
 )
 from sqlalchemy import select, insert, update, and_, distinct, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from db import get_async_session
-from users import current_user, current_active_user
-from db import User, URLAddresses
+from src.db import get_async_session
+from src.users import current_user, current_active_user
+from src.db import User, URLAddresses
 from typing import List
+from fastapi_cache.decorator import cache
 
 router = APIRouter(prefix='/links')
 
@@ -90,6 +93,7 @@ async def search_url_alias(
         )
 
     return  initial_url
+
 
 @router.get("/{short_code}") # response_model=RedirectResponse
 async def redirect_to_initial_url(

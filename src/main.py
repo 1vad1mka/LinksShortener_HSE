@@ -1,12 +1,27 @@
 from fastapi import Depends, FastAPI
-from db import User
-from schemas import UserCreate, UserRead, UserUpdate
-from users import auth_backend, current_active_user, fastapi_users
-from router1 import router as router1
+from src.db import User
+from src.schemas import UserCreate, UserRead, UserUpdate
+from src.users import auth_backend, current_active_user, fastapi_users
+from src.router1 import router as router1
 import uvicorn
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+
+from redis import asyncio as aioredis
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    redis = aioredis.from_url("redis://localhost")
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(router1)
 
@@ -34,6 +49,13 @@ app.include_router(
     tags=["users"],
 )
 
+import time
+
+@app.get("/hello")
+@cache(expire=60)
+async def hello():
+    time.sleep(5)
+    return 'Hello!'
 
 @app.get("/authenticated-route")
 async def authenticated_route(users: User = Depends(current_active_user)):
