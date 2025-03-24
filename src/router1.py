@@ -13,8 +13,9 @@ from src.pydantic_schemas import (
     DeleteShortCodeResponse,
     ChangeShortCodeResponse
 )
-from sqlalchemy import select, insert, update, and_, distinct, delete
+from sqlalchemy import select, insert, update, and_, or_, distinct, delete, TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 from src.db import get_async_session
 from src.users import current_user, current_active_user
 from src.db import User, URLAddresses, ExpiredURLHistory
@@ -32,7 +33,14 @@ async def delete_expired(session, n_days_expired=30):
         - n_days_expired: число дней, после которых url удаляются из БД
     """
     # Добавляем все истекшие ссылки в таблицу с url
-    query = select(URLAddresses).where(URLAddresses.expires_at <= datetime.datetime.now())
+    query = select(URLAddresses).where(
+        or_(
+            URLAddresses.expires_at <= func.now(),
+            func.extract('day', (func.now() - URLAddresses.created_at)) > n_days_expired
+        )
+    )
+
+
     records_to_insert = await session.execute(query)
     records_to_insert = records_to_insert.scalars().all()
 
@@ -58,7 +66,12 @@ async def delete_expired(session, n_days_expired=30):
 
         # Удаляем все ссылки, срок действия которых истек
         try:
-            query = delete(URLAddresses).where(URLAddresses.expires_at <= datetime.datetime.now())
+            query = delete(URLAddresses).where(
+        or_(
+            URLAddresses.expires_at <= func.now(),
+            func.extract('day', (func.now() - URLAddresses.created_at)) > n_days_expired
+        )
+    )
             await session.execute(query)
             await session.commit()
         except Exception as e:
@@ -74,10 +87,10 @@ async def shorten_url(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    #try:
+    _ = await delete_expired(session)
+    #except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Извлекаем из БД все shorten_url
     try:
@@ -208,10 +221,10 @@ async def short_code_stats(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    #try:
+    _ = await delete_expired(session)
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
     # Проверяем, есть ли такой short_code
     query = select(distinct(URLAddresses.shorten_url))
