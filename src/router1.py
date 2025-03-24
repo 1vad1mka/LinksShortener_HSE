@@ -20,6 +20,7 @@ from src.users import current_user, current_active_user
 from src.db import User, URLAddresses
 from typing import List
 from fastapi_cache.decorator import cache
+from fastapi_cache import FastAPICache
 
 router = APIRouter(prefix='/links')
 
@@ -101,6 +102,8 @@ async def redirect_to_initial_url(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)
 ):
+    # Удаляем кэш, т.к. редирект инкрементирует counter перехода по ссылке
+    await FastAPICache.clear()
 
     try:
         # Извлекаем известные Url из БД
@@ -206,6 +209,9 @@ async def delete_url_alias(
         user: User = Depends(current_active_user)
 ):
 
+    # Очищаем кэш
+    await FastAPICache.clear()
+
     # Проверяем, создавал ли данный пользователь ссылки
     query = select(distinct(URLAddresses.user_id))
     unique_ids = await session.execute(query)
@@ -251,6 +257,9 @@ async def change_short_code(
         session: AsyncSession = Depends(get_async_session),
         user: User = Depends(current_active_user)
 ):
+    # Очищаем кэш
+    await FastAPICache.clear()
+
     # Проверяем, создавал ли данный пользователь ссылки
     query = select(distinct(URLAddresses.user_id))
     unique_ids = await session.execute(query)
