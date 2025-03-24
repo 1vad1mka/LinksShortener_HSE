@@ -78,6 +78,7 @@ async def shorten_url(
 
 # Поиск ссылки по оригинальному URL:
 @router.get("/search")
+@cache(expire=60)
 async def search_url_alias(
         url: str,
         session: AsyncSession = Depends(get_async_session)
@@ -148,6 +149,7 @@ async def redirect_to_initial_url(
 # Отображает оригинальный URL, возвращает дату создания, количество переходов,
 # дату последнего использования.
 @router.get("/{short_code}/stats", response_model=ShortCodeStatsResponse)
+@cache(expire=60)
 async def short_code_stats(
         short_code: str,
         session: AsyncSession = Depends(get_async_session)

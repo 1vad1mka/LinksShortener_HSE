@@ -49,13 +49,6 @@ app.include_router(
     tags=["users"],
 )
 
-import time
-
-@app.get("/hello")
-@cache(expire=60)
-async def hello():
-    time.sleep(5)
-    return 'Hello!'
 
 @app.get("/authenticated-route")
 async def authenticated_route(users: User = Depends(current_active_user)):
