@@ -8,3 +8,4 @@ asyncpg
 fastapi-users[sqlalchemy]
 fastapi-cache2[redis]
 redis
+qrcode[pil]

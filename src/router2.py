@@ -1,34 +1,54 @@
 import asyncio
-from collections.abc import AsyncIterator
 from datetime import datetime
+import qrcode
+from io import BytesIO
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse, Response
+from pydantic import BaseModel
 
-from sqlalchemy import delete
-
-from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db import get_async_session
 from src.db import URLAddresses
 
 
-async def get_db():
-    async with get_async_session() as session:
-        yield session
-
-@asynccontextmanager
-async def delete_expired_links(_: APIRouter):
-    async with get_db() as session:
-        while True:
-            now = datetime.now()
-            await session.execute(
-                delete(URLAddresses).where(URLAddresses.expires_at <= now)
-            )
-            await session.commit()
-            await asyncio.sleep(300)
-            yield
+router = APIRouter(prefix='/links')
 
 
-router = APIRouter(lifespan=delete_expired_links)
+# Создает QR для url
+@router.post("/get_QR/")
+async def generate_qr(
+        url: str,
+):
+    try:
+        # Генерация QR-кода
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Сохранение изображения в байтовый поток
+        img_byte_arr = BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Something went wrong. Details: {str(e)}"
+        )
+
+    # Возвращаем изображение как файл для скачивания
+    return StreamingResponse(img_byte_arr, media_type="image/png",
+                             headers={"Content-Disposition": "attachment; filename=qr_code.png"}
+                             )
+
 
 
