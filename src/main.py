@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    redis = aioredis.from_url("redis://localhost")
+    redis = aioredis.from_url("redis://redis")
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
     yield
 
