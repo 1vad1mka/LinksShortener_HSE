@@ -45,6 +45,7 @@ async def generate_qr(
             detail=f"Something went wrong. Details: {str(e)}"
         )
 
+
     # Возвращаем изображение как файл для скачивания
     return StreamingResponse(img_byte_arr, media_type="image/png",
                              headers={"Content-Disposition": "attachment; filename=qr_code.png"}
