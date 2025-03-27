@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI, Request
-from src.db import User
-from src.schemas import UserCreate, UserRead, UserUpdate
-from src.users import auth_backend, current_active_user, fastapi_users
-from src.router1 import router as router1
-from src.router2 import router as router2
+from db import User
+from schemas import UserCreate, UserRead, UserUpdate
+from users import auth_backend, current_active_user, fastapi_users
+from router1 import router as router1
+from router2 import router as router2
 import uvicorn
 
 import logging

@@ -5,8 +5,8 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from src.functions import shorten_url_hash
-from src.pydantic_schemas import (
+from functions import shorten_url_hash
+from pydantic_schemas import (
     ShortenURLModelRequest,
     ShortenURLModelResponse,
     ShortCodeStatsResponse,
@@ -16,9 +16,9 @@ from src.pydantic_schemas import (
 from sqlalchemy import select, insert, update, and_, or_, distinct, delete, TIMESTAMP
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
-from src.db import get_async_session
-from src.users import current_user, current_active_user
-from src.db import User, URLAddresses, ExpiredURLHistory
+from db import get_async_session
+from users import current_user, current_active_user
+from db import User, URLAddresses, ExpiredURLHistory
 from typing import List
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache

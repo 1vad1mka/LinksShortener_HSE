@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Boolean, Table, UUID
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.orm import DeclarativeBase
-from src.config import DATABASE_URL
+from config import DATABASE_URL
 import datetime
 
 

@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db import get_async_session
-from src.db import URLAddresses
+from db import get_async_session
+from db import URLAddresses
 
 
 router = APIRouter(prefix='/links')

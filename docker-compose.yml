@@ -1,47 +1,45 @@
-version: "3.7"
+version: "3.8"
 services:
   db:
     image: postgres:16
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+
     environment:
-      POSTGRES_PASSWORD: student24
-    container_name: db_app
-    command: -p 1221
-    expose:
-      - 1221
+      DB_PASS: "student24"
+      POSTGRES_PASSWORD: "student24"
+      PYTHONPATH: "/fastapi_app"
+      POSTGRES_DB: "db"
 
   redis:
     image: redis:7
-    container_name: redis_app
-    command: --port 5370
-    expose:
-      - 5370
+    container_name: redis
+    ports:
+      - "5370:5370"
 
   app:
-    build:
-      context: .
-    container_name: fastapi_app
-    command: ["sh", "-c", "/fastapi_app/app.sh"]
+    build: .
     ports:
-      - 9999:8000
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DB_PASS: "student24"
+      POSTGRES_PASSWORD: "student24"
+      PYTHONPATH: "/fastapi_app"
+    command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
-#  celery:
-#    build:
-#      context: .
-#    container_name: celery_app
-#    command: ["/fastapi_app/docker/celery.sh", "celery"]
-#    depends_on:
-#      - redis
-#
-#  flower:
-#    build:
-#      context: .
-#    container_name: flower_app
-#    command: ["/fastapi_app/docker/celery.sh", "flower"]
-#    depends_on:
-#      - redis
-#      - celery
-#    ports:
-#      - 8888:5555
+
