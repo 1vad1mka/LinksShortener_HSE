@@ -20,7 +20,7 @@ services:
     build:
       context: .
     container_name: fastapi_app
-    command: ["/fastapi_app/docker/app.sh"]
+    command: ["sh", "-c", "/fastapi_app/docker/app.sh"]
     ports:
       - 9999:8000
     depends_on:
