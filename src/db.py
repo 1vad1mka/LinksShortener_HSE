@@ -3,10 +3,12 @@ from fastapi import Depends
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID, SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, Boolean, Table, UUID
-from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.orm import relationship, declarative_base, sessionmaker
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase
-from config import DATABASE_URL
+from config import DATABASE_URL, DATABASE_URL_SYNC
 import datetime
+
 
 
 class Base(DeclarativeBase):
@@ -46,6 +48,12 @@ class ExpiredURLHistory(Base):
 
 engine = create_async_engine(DATABASE_URL)
 async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
+
+sync_engine = create_engine(DATABASE_URL_SYNC)
+sync_session = sessionmaker(sync_engine, expire_on_commit=False)
+
+
+
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:

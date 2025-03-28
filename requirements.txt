@@ -6,7 +6,10 @@ sqlalchemy
 alembic
 python-dotenv
 asyncpg
+psycopg2
 fastapi-users[sqlalchemy]
 fastapi-cache2[redis]
 redis
 qrcode[pil]
+celery
+flower

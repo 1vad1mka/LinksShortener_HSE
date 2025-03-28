@@ -4,6 +4,7 @@ from schemas import UserCreate, UserRead, UserUpdate
 from users import auth_backend, current_active_user, fastapi_users
 from router1 import router as router1
 from router2 import router as router2
+from router3 import router as router3
 import uvicorn
 
 import logging
@@ -48,6 +49,8 @@ async def log_requests(request: Request, call_next):
 app.include_router(router1)
 
 app.include_router(router2)
+
+app.include_router(router3)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend), prefix="/auth/jwt", tags=["auth"]

@@ -1,7 +1,6 @@
 import datetime
 import random
 import string
-import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -19,14 +18,14 @@ from sqlalchemy import func
 from db import get_async_session
 from users import current_user, current_active_user
 from db import User, URLAddresses, ExpiredURLHistory
-from typing import List
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
+from task import delete_expired
 
 router = APIRouter(prefix='/links')
 
 
-async def delete_expired(session, n_days_expired=30):
+async def delete_expired_old(session, n_days_expired=30):
     """
     Функция для удаления истекших ссылок, а также для удаления неиспользуемых ссылок:
         - session: сессия БД
@@ -86,11 +85,15 @@ async def shorten_url(
         user: User = Depends(current_user),
         session: AsyncSession = Depends(get_async_session)
 ):
-    # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # # Предварительно удаляем истекшие ссылки
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
+
+
+    celery_task = delete_expired.delay()
 
     # Извлекаем из БД все shorten_url
     try:
@@ -148,10 +151,12 @@ async def search_url_alias(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+
+    celery_task = delete_expired.delay()
 
     try:
         query = select(URLAddresses.shorten_url).where(URLAddresses.initial_url==url)
@@ -172,11 +177,12 @@ async def redirect_to_initial_url(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
 
+    celery_task = delete_expired.delay()
 
     # Удаляем кэш, т.к. редирект инкрементирует counter перехода по ссылке
     await FastAPICache.clear()
@@ -234,10 +240,11 @@ async def short_code_stats(
         session: AsyncSession = Depends(get_async_session)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    celery_task = delete_expired.delay()
 
     # Проверяем, есть ли такой short_code
     query = select(distinct(URLAddresses.shorten_url))
@@ -290,10 +297,11 @@ async def delete_url_alias(
         user: User = Depends(current_active_user)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    celery_task = delete_expired.delay()
 
     # Очищаем кэш
     await FastAPICache.clear()
@@ -344,10 +352,11 @@ async def change_short_code(
         user: User = Depends(current_active_user)
 ):
     # Предварительно удаляем истекшие ссылки
-    try:
-        _ = await delete_expired(session)
-    except Exception as e:
-       raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    # try:
+    #     _ = await delete_expired(session)
+    # except Exception as e:
+    #    raise HTTPException(status_code=500, detail=f"Something went wrong. Details: {e}")
+    celery_task = delete_expired.delay()
 
     # Очищаем кэш
     await FastAPICache.clear()

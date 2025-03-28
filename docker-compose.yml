@@ -43,3 +43,18 @@ services:
         condition: service_started
 
 
+  celery:
+    command: ["/fastapi_app/docker/celery.sh", "celery"]
+    depends_on:
+      - redis
+
+  flower:
+    build:
+      context: .
+    container_name: flower_app
+    command: ["/fastapi_app/docker/celery.sh", "flower"]
+    depends_on:
+      - redis
+      - celery
+    ports:
+      - 8888:5555
