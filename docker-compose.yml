@@ -14,16 +14,21 @@ services:
       retries: 3
 
     environment:
-      DB_PASS: "student24"
-      POSTGRES_PASSWORD: "student24"
+      DB_PASS: ${DB_PASS}
+      POSTGRES_PASSWORD: ${DB_PASS}
       PYTHONPATH: "/fastapi_app"
-      POSTGRES_DB: "db"
+      POSTGRES_DB: ${DB_NAME}
 
   redis:
     image: redis:7
     container_name: redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   app:
     build: .
@@ -32,8 +37,8 @@ services:
     env_file:
       - .env
     environment:
-      DB_PASS: "student24"
-      POSTGRES_PASSWORD: "student24"
+      DB_PASS: ${DB_PASS}
+      POSTGRES_PASSWORD: ${DB_PASS}
       PYTHONPATH: "/fastapi_app"
     command: ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
     depends_on:
@@ -42,19 +47,35 @@ services:
       redis:
         condition: service_started
 
-
   celery:
-    command: ["/fastapi_app/docker/celery.sh", "celery"]
+    build: .
+    image:
+      celery:latest
+    environment:
+      - PYTHONPATH=/fastapi_app/
+    command: ["sh", "-c", "celery -A task:celery worker"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A task:celery status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     depends_on:
       - redis
 
   flower:
-    build:
-      context: .
-    container_name: flower_app
-    command: ["/fastapi_app/docker/celery.sh", "flower"]
-    depends_on:
-      - redis
-      - celery
+    build: .
     ports:
-      - 8888:5555
+      - "5555:5555"
+    image: mher/flower:latest
+    environment:
+      - PYTHONPATH=/fastapi_app/
+      - FLOWER_UNAUTHENTICATED_API=true
+    command: ["sh", "-c", "celery -A task:celery flower"]
+    depends_on:
+      redis:
+          condition: service_healthy
+      celery:
+          condition: service_healthy
+
+
+

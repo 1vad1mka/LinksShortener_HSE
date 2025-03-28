@@ -11,8 +11,8 @@ os.environ.setdefault('FORKED_BY_MULTIPROCESSING', '1')
 
 celery = Celery(
     'delete_expired',
-    broker='redis://localhost:6379',
-    backend='redis://localhost:6379'
+    broker='redis://redis:6379',
+    backend='redis://redis:6379'
 )
 
 
